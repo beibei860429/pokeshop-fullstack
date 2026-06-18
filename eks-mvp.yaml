@@ -1,0 +1,16 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: poke-mvp-cluster
+  # 孟買區
+  region: ap-south-1
+
+managedNodeGroups:
+  - name: ng-cheap-spot
+    instanceType: t3.medium
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    # 使用 Spot 執行個體可以幫你省下高達 70% 的 EC2 成本！
+    spot: true
