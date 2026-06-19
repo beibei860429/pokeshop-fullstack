@@ -48,10 +48,19 @@
                 const testBackend = async () => {
                     apiStatus.value = '連線中...';
                     try {
-                        // 1. 讀取 Vite 環境變數，如果抓不到（例如本地開發環境沒設），就退回 localhost:8081
-                        const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081';
+                        let apiBase = '';
+
+                        // 🎯 判斷目前是在本地開發，還是已經部署到雲端
+                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                            // 本地開發環境：退回你原本設定的後端 port (8081 或 9090，請依你本地 Spring Boot 為主)
+                            apiBase = 'http://localhost:8081';
+                        } else {
+                            // 雲端環境：自動抓取瀏覽器網址列的網域/IP與 30080 埠號
+                            // 如此一來不論是 13.233.163.121:30080 還是 beibei860429.duckdns.org:30080 都能完美動態對齊！
+                            apiBase = `${window.location.protocol}//${window.location.host}`;
+                        }
                         
-                        // 2. 使用模板字串動態串接網址
+                        // 🎯 動態串接 API 路徑
                         const response = await fetch(`${apiBase}/api/health`);
                         
                         if (response.ok) {
