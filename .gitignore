@@ -18,6 +18,7 @@ springboot-project/target/
 # IDE/editor files
 .vscode/
 .idea/
+diagnose.txt
 
 # OS files
 .DS_Store

@@ -1,43 +1,24 @@
 package com.example.demo;
 
-import java.util.Arrays;
-
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorsConfig {
 
-    // 這裡同時引入了你之前想用的 K8s 環境變數，找不到就用預設的本地前端 5173
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
-    private String allowedOrigin;
-
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://127.0.0.1:5173", allowedOrigin));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.addAllowedHeader("*");
-        config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
-
-    @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilterRegistration(
-            @Qualifier("corsConfigurationSource") CorsConfigurationSource source) {
-        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
-        bean.setOrder(0);
-        return bean;
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")          // 允許所有 API 路徑
+                        .allowedOriginPatterns("*") // 🎯 允許任何來源網域（支援帶憑證的請求）
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 允許所有請求方法
+                        .allowedHeaders("*")        // 允許所有 Header
+                        .allowCredentials(true);    // 允許攜帶 Cookie 或認證資訊
+            }
+        };
     }
 }

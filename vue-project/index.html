@@ -4,78 +4,132 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokemon GO 簡介</title>
+
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-100 text-gray-800">
+
     <div id="app" class="max-w-4xl mx-auto p-6">
+
         <header class="text-center my-8">
-            <h1 class="text-4xl font-bold text-yellow-500 drop-shadow-md">✨ Pokemon GO 世界指南 ✨</h1>
-            <p class="text-gray-600 mt-2">在現實世界中捕捉寶可夢的冒險之旅</p>
+            <h1 class="text-4xl font-bold text-yellow-500 drop-shadow-md">
+                ✨ Pokemon GO 世界指南 ✨
+            </h1>
+            <p class="text-gray-600 mt-2">
+                在現實世界中捕捉寶可夢的冒險之旅
+            </p>
         </header>
 
         <main class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
             <section class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-2xl font-bold text-blue-600 mb-4">🎮 遊戲核心玩法</h2>
+                <h2 class="text-2xl font-bold text-blue-600 mb-4">
+                    🎮 遊戲核心玩法
+                </h2>
+
                 <ul class="list-disc list-inside space-y-2 text-gray-700">
-                    <li>**探索現實世界**：利用 GPS 在地圖上尋找野生寶可夢。</li>
-                    <li>**補給站與道館**：在現實地標旋轉轉盤獲得道具，或進行道館爭奪戰。</li>
-                    <li>**團體戰 (Raid)**：與其他訓練家合作，擊敗並捕捉強大的傳說寶可夢。</li>
+                    <li>
+                        <strong>探索現實世界</strong>：利用 GPS 在地圖上尋找野生寶可夢。
+                    </li>
+                    <li>
+                        <strong>補給站與道館</strong>：在現實地標旋轉轉盤獲得道具，或進行道館爭奪戰。
+                    </li>
+                    <li>
+                        <strong>團體戰 (Raid)</strong>：與其他訓練家合作，擊敗並捕捉強大的傳說寶可夢。
+                    </li>
                 </ul>
             </section>
 
             <section class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-2xl font-bold text-red-500 mb-4">🛡️ 後端連線測試</h2>
+                <h2 class="text-2xl font-bold text-red-500 mb-4">
+                    🛡️ 後端連線測試
+                </h2>
+
                 <div class="p-4 bg-gray-50 rounded border">
-                    <p class="mb-2">狀態：<span :class="statusColor" class="font-bold">{{ apiStatus }}</span></p>
-                    <button @click="testBackend" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow transition">
+                    <p class="mb-2">
+                        狀態：
+                        <span :class="statusColor" class="font-bold">
+                            {{ apiStatus }}
+                        </span>
+                    </p>
+
+                    <button
+                        @click="testBackend"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow transition"
+                    >
                         呼叫 Spring Boot 後端
                     </button>
                 </div>
             </section>
+
         </main>
+
     </div>
 
     <script type="module">
         const { createApp, ref, computed } = Vue;
+
         createApp({
             setup() {
+
                 const apiStatus = ref('尚未連線');
+
                 const statusColor = computed(() => {
-                    return apiStatus.value === '連線成功！' ? 'text-green-600' : 'text-amber-600';
+                    return apiStatus.value === '連線成功！'
+                        ? 'text-green-600'
+                        : 'text-amber-600';
                 });
 
                 const testBackend = async () => {
+
                     apiStatus.value = '連線中...';
+
                     try {
+
                         let apiBase = '';
 
                         // 🎯 判斷目前是在本地開發，還是已經部署到雲端
-                        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                            // 本地開發環境：退回你原本設定的後端 port (8081 或 9090，請依你本地 Spring Boot 為主)
+                        if (
+                            window.location.hostname === 'localhost' ||
+                            window.location.hostname === '127.0.0.1'
+                        ) {
+
+                            // 本地開發環境
                             apiBase = 'http://localhost:8081';
+
                         } else {
-                            // 雲端環境：自動抓取瀏覽器網址列的網域/IP與 30080 埠號
-                            // 如此一來不論是 13.233.163.121:30080 還是 beibei860429.duckdns.org:30080 都能完美動態對齊！
-                            apiBase = `${window.location.protocol}//${window.location.host}`;
+
+                            // 雲端環境
+                            apiBase =
+                                `${window.location.protocol}//${window.location.host}`;
                         }
-                        
+
                         // 🎯 動態串接 API 路徑
-                        const response = await fetch(`${apiBase}/api/health`);
-                        
+                        const response =
+                            await fetch(`${apiBase}/api/health`);
+
                         if (response.ok) {
                             apiStatus.value = '連線成功！';
                         } else {
                             apiStatus.value = `錯誤代碼: ${response.status}`;
                         }
+
                     } catch (error) {
-                        apiStatus.value = '連線失敗，找不到後端服務';
+
+                        apiStatus.value =
+                            '連線失敗，找不到後端服務';
                     }
                 };
 
-                return { apiStatus, testBackend, statusColor };
+                return {
+                    apiStatus,
+                    testBackend,
+                    statusColor
+                };
             }
         }).mount('#app');
-</script>
+    </script>
 </body>
 </html>
