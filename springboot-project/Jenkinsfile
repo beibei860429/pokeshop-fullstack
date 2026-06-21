@@ -5,7 +5,7 @@ pipeline {
         maven 'local-maven' 
     }
     environment {
-        // 🎯 這裡改成你原本 app-deployment.yaml 裡面寫的 image 名稱：beibei860429/springboot-api
+        // 這裡改成你原本 app-deployment.yaml 裡面寫的 image 名稱：beibei860429/springboot-api
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
         GITHUB_CREDENTIALS_ID = 'github-token'
         DOCKER_CREDENTIALS_ID = 'dockerhub-pwd' // 這是你在 Jenkins 儲存的 Docker Hub 帳密憑證 ID
@@ -46,6 +46,17 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+
+        // 階段四：接在最後面，通知 K8s 進行重啟部署！
+        stage('K8s Deploy') {
+            steps {
+                // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
+                bat '''
+                    kubectl apply -f app-deployment.yaml
+                    kubectl rollout restart deployment poke-app
+                '''
             }
         }
     }
