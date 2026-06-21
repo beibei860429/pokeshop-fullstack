@@ -1,0 +1,43 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_HUB_REGISTRY = 'beibei860429/vue-frontend'
+        GITHUB_CREDENTIALS_ID = 'github-token'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-pwd'
+    }
+    stages {
+        stage('Fetch Code') {
+            steps {
+                git branch: 'main', credentialsId: "${GITHUB_CREDENTIALS_ID}", url: 'https://github.com/beibei860429/pokeshop-fullstack.git'
+            }
+        }
+        stage('Node Build') {
+            steps {
+                // 👈 核心修改：進入前端資料夾再 npm run build
+                dir('vue-project') {
+                    script {
+                        docker.image('node:20-alpine').inside('-v /root/.npm:/root/.npm') {
+                            sh 'npm ci'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+            }
+        }
+        stage('Docker Build & Push') {
+            steps {
+                // 👈 核心修改：進入前端資料夾，才能抓到前端的 Dockerfile 和 dist 檔案
+                dir('vue-project') {
+                    script {
+                        env.IMAGE_TAG = "v_${env.BUILD_NUMBER}"
+                        docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                            def customImage = docker.build("${DOCKER_HUB_REGISTRY}:${env.IMAGE_TAG}")
+                            customImage.push()
+                            customImage.push('latest')
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
