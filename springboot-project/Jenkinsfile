@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    tools {
+        // 告訴 Jenkins 這個 Pipeline 要套用我們剛剛在後台設定好名為 'local-maven' 的 Maven 工具
+        maven 'local-maven' 
+    }
     environment {
         // 🎯 這裡改成你原本 app-deployment.yaml 裡面寫的 image 名稱：beibei860429/springboot-api
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
@@ -16,8 +20,8 @@ pipeline {
         stage('Maven Build') {
             steps {
                 dir('springboot-project') {
-                    // 使用 Windows 原生批次指令編譯，100% 不卡路徑
-                    bat 'mvnw.cmd clean package -DskipTests'
+                    // 改成呼叫 Windows 本機安裝的實體 Maven 指令
+                    bat 'mvn clean package -DskipTests'
                 }
             }
         }
