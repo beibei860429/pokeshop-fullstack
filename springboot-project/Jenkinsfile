@@ -55,7 +55,7 @@ pipeline {
                 // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
                 bat '''
                     kubectl apply -f app-deployment.yaml
-                    kubectl rollout restart deployment poke-app
+                    kubectl rollout restart deployment/poke-app
                 '''
             }
         }
