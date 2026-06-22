@@ -49,15 +49,49 @@ pipeline {
             }
         }
 
-        // 階段四：接在最後面，通知 K8s 進行重啟部署！
-        stage('K8s Deploy') {
+        // 核心修改：移除原本的 kubectl apply，改為更新 GitOps 部署倉庫的 YAML 設定
+        stage('Update GitOps Manifest') {
             steps {
-                // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
-                bat '''
-                    kubectl apply -f app-deployment.yaml
-                    kubectl rollout restart deployment/poke-app
-                '''
+                // 使用你之前在 Jenkins 設定好的 github-token 憑證，用來取得推送回 GitHub 的權限
+                withCredentials([usernamePassword(credentialsId: "${GITHUB_CREDENTIALS_ID}", usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    script {
+                        def imageTag = "v_${env.BUILD_NUMBER}"
+                        
+                        // 使用 Windows PowerShell 來處理目錄切換、下載 Git 與修改文字
+                        powershell """
+                            # 1. 設定 Git 使用者資訊
+                            git config --global user.name "Jenkins CI"
+                            git config --global user.email "jenkins@ci.com"
+                            
+                            # 2. 如果之前有殘留的資料夾，先刪除，避免 Clone 失敗
+                            if (Test-Path "pokeshop-gitops") { Remove-Item -Recurse -Force "pokeshop-gitops" }
+                            
+                            # 3. 把剛剛建立的 GitOps 部署倉庫 Clone 下來 (帶有 Token 才有權限寫入)
+                            git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/beibei860429/pokeshop-gitops.git
+                            cd pokeshop-gitops
+                            
+                            # 4. 使用 PowerShell 取代原本 Linux 的 sed 指令，動態修改 app-deployment.yaml 裡面的映像檔標籤
+                            (Get-Content app-deployment.yaml) -replace "${DOCKER_HUB_REGISTRY}:.*", "${DOCKER_HUB_REGISTRY}:${imageTag}" | Set-Content app-deployment.yaml
+                            
+                            # 5. 將修改後的 YAML 檔推回 GitHub 部署倉庫
+                            git add app-deployment.yaml
+                            git commit -m "image: 自動更新後端映像檔版本至 ${imageTag} [skip ci]"
+                            git push origin main
+                        """
+                    }
+                }
             }
         }
+
+        // 階段四：接在最後面，通知 K8s 進行重啟部署！
+        // stage('K8s Deploy') {
+        //     steps {
+        //         // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
+        //         bat '''
+        //             kubectl apply -f app-deployment.yaml
+        //             kubectl rollout restart deployment/poke-app
+        //         '''
+        //     }
+        // }
     }
 }
