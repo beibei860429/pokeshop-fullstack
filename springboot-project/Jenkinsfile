@@ -5,7 +5,7 @@ pipeline {
         maven 'local-maven' 
     }
     environment {
-        // 這裡改成你原本 app-deployment.yaml 裡面寫的 image 名稱：beibei860429/springboot-api
+        // 這裡改成你原本 backend-deploy.yaml 裡面寫的 image 名稱：beibei860429/springboot-api
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
         GITHUB_CREDENTIALS_ID = 'github-token'
         DOCKER_CREDENTIALS_ID = 'dockerhub-pwd' // 這是你在 Jenkins 儲存的 Docker Hub 帳密憑證 ID
@@ -70,14 +70,14 @@ pipeline {
                             git config user.email "jenkins@cicd.com"
 
                             # 關鍵修正：把原本的 .\\ 改成正斜線 ./ 或者直接寫檔名，徹底避開 Groovy 語法衝突
-                            if (Test-Path -Path "app-deployment.yaml") {
-                                (Get-Content ./app-deployment.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./app-deployment.yaml
+                            if (Test-Path -Path "backend-deploy.yaml") {
+                                (Get-Content ./backend-deploy.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./backend-deploy.yaml
                                 
-                                git add ./app-deployment.yaml
+                                git add ./backend-deploy.yaml
                                 git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
                                 git push origin main
                             } else {
-                                Write-Error "找不到 app-deployment.yaml 檔案！"
+                                Write-Error "找不到 backend-deploy.yaml 檔案！"
                             }
                         """
                     }
@@ -90,7 +90,7 @@ pipeline {
         //     steps {
         //         // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
         //         bat '''
-        //             kubectl apply -f app-deployment.yaml
+        //             kubectl apply -f backend-deploy.yaml
         //             kubectl rollout restart deployment/poke-app
         //         '''
         //     }
