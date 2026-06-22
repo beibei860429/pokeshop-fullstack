@@ -52,37 +52,32 @@ pipeline {
         // 核心修改：移除原本的 kubectl apply，改為更新 GitOps 部署倉庫的 YAML 設定
         stage('Update GitOps Manifest') {
             steps {
-                // 1. 直接用 usernamePassword，Jenkins 會自動把密碼注入成環境變數 %GIT_TOKEN% (Windows CMD/PowerShell 可直接讀取)
                 withCredentials([usernamePassword(credentialsId: 'github-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
                         def imageTag = "v_${env.BUILD_NUMBER}"
                         
-                        // 2. 使用單引號 '''，裡面絕對不用 ${} 這種會引發安全警告的 Groovy 字串拼接
-                        // 在 PowerShell 中，可以直接透過 $env:GIT_TOKEN 讀取 Jenkins 注入的環境變數
+                        // 這裡用 """，但把內部的反斜線 \ 全數消滅，改用正斜線 / 或是雙斜線 \\ 轉義
                         powershell """
                             # 移除舊的資料夾（若存在）
                             if (Test-Path -Path "pokeshop-gitops") { Remove-Item -Recurse -Force "pokeshop-gitops" }
 
-                            # 複製最新的 GitOps 專案
+                            # 克隆倉庫（\$env:GIT_TOKEN 用反斜線轉義是正確的，因為那是保留給 PowerShell 的變數）
                             git clone https://\$env:GIT_TOKEN@github.com/beibei860429/pokeshop-gitops.git
                             
-                            # 關鍵修正：進入資料夾後，用分號或換行確保後續指令都在該目錄執行
                             cd pokeshop-gitops
                             
-                            # 設定 Git 人員資訊
                             git config user.name "Jenkins CI"
                             git config user.email "jenkins@cicd.com"
 
-                            # 替換版號，這邊精準指定在當前目錄的 app-deployment.yaml
+                            # 關鍵修正：把原本的 .\\ 改成正斜線 ./ 或者直接寫檔名，徹底避開 Groovy 語法衝突
                             if (Test-Path -Path "app-deployment.yaml") {
-                                (Get-Content .\app-deployment.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content .\app-deployment.yaml
+                                (Get-Content ./app-deployment.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./app-deployment.yaml
                                 
-                                # 提交並推回 GitHub
-                                git add .\app-deployment.yaml
+                                git add ./app-deployment.yaml
                                 git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
                                 git push origin main
                             } else {
-                                Write-Error "找不到 app-deployment.yaml 檔案！請檢查倉庫目錄結構。"
+                                Write-Error "找不到 app-deployment.yaml 檔案！"
                             }
                         """
                     }
