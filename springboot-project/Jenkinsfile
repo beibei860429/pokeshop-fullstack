@@ -53,7 +53,7 @@ pipeline {
         stage('Update GitOps Manifest') {
             steps {
                 // 使用 credentials 綁定 Token，並傳入變數 GIT_TOKEN
-                withCredentials([string(credentialsId: 'github-token-id', variable: 'GIT_TOKEN')]) {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
                     script {
                         def imageTag = "v_${env.BUILD_NUMBER}"
                         
