@@ -71,9 +71,9 @@ pipeline {
 
                             # 關鍵修正：把原本的 .\\ 改成正斜線 ./ 或者直接寫檔名，徹底避開 Groovy 語法衝突
                             if (Test-Path -Path "backend-deploy.yaml") {
-                                (Get-Content ./backend-deploy.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./backend-deploy.yaml
+                                (Get-Content ./apps/backend-deploy.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./apps/backend-deploy.yaml
                                 
-                                git add ./backend-deploy.yaml
+                                git add ./apps/backend-deploy.yaml
                                 git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
                                 git push origin main
                             } else {
