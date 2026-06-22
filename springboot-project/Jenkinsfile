@@ -52,36 +52,26 @@ pipeline {
         // 核心修改：移除原本的 kubectl apply，改為更新 GitOps 部署倉庫的 YAML 設定
         stage('Update GitOps Manifest') {
             steps {
-                // 使用 credentials 綁定 Token，並傳入變數 GIT_TOKEN
-                withCredentials([string(credentialsId: 'github-token', variable: 'GIT_TOKEN')]) {
+                // 修正：改用 usernamePassword 語法來對接你的憑證類型
+                withCredentials([usernamePassword(credentialsId: 'github-token', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
                         def imageTag = "v_${env.BUILD_NUMBER}"
-                        
-                        // 1. 預先定義好複製下來的 GitOps 專案資料夾名稱
                         def repoDir = "pokeshop-gitops" 
 
-                        // 使用 withEnv 確保 Token 不會透過字串拼接外洩，Powershell 內用 $env:MY_TOKEN 讀取
+                        // 把解出來的密碼（Token）傳給環境變數 MY_TOKEN
                         withEnv(["MY_TOKEN=${GIT_TOKEN}", "NEW_TAG=${imageTag}"]) {
                             powershell '''
-                                # 移除舊的資料夾（若存在），避免重複 clone 衝突
                                 if (Test-Path -Path "pokeshop-gitops") { Remove-Item -Recurse -Force "pokeshop-gitops" }
 
-                                # 修正一：安全地使用環境變數進行 Clone
+                                # 這裡會自動代入你的 GitHub Token 進行 clone
                                 git clone https://$env:MY_TOKEN@github.com/beibei860429/pokeshop-gitops.git
                                 
-                                # 修正二：進去 GitOps 的專案資料夾！這樣才找得到檔案
                                 cd pokeshop-gitops
-
-                                # 設定 Git 人員資訊
                                 git config user.name "Jenkins CI"
                                 git config user.email "jenkins@cicd.com"
 
-                                # 修正三：動態替換 YAML 裡的版號 (假設原本寫 image: ...:latest 或舊版號)
-                                # 這邊強烈建議你的 YAML 裡原本有特定格式，例如 image: beibei860429/springboot-api:latest
-                                # 底下範例會把所有 :latest 或舊版號精準替換成新版號
                                 (Get-Content app-deployment.yaml) -replace 'springboot-api:.*', "springboot-api:$env:NEW_TAG" | Set-Content app-deployment.yaml
 
-                                # 提交並推回 GitHub 實現 GitOps 核心精神
                                 git add app-deployment.yaml
                                 git commit -m "chore: Jenkins auto update backend image tag to $env:NEW_TAG [skip ci]"
                                 git push origin main
