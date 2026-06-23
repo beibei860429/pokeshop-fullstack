@@ -9,12 +9,6 @@ pipeline {
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
         GITHUB_CREDENTIALS_ID = 'github-token'
         DOCKER_CREDENTIALS_ID = 'dockerhub-pwd' // 這是你在 Jenkins 儲存的 Docker Hub 帳密憑證 ID
-
-        // 安全修正：從 Jenkins 保險箱讀取，GitHub 上完全看不到密碼！
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
-        AWS_SESSION_TOKEN     = credentials('aws-session-token')
-        AWS_DEFAULT_REGION    = 'ap-south-1'
     }
     stages {
         stage('Fetch Code') {
@@ -62,30 +56,31 @@ pipeline {
                     script {
                         def imageTag = "v_${env.BUILD_NUMBER}"
                         
-                        // 這裡用 """，但把內部的反斜線 \ 全數消滅，改用正斜線 / 或是雙斜線 \\ 轉義
+                        // 1. 先在外層把舊的刪除並 Clone 
                         powershell """
-                            # 移除舊的資料夾（若存在）
                             if (Test-Path -Path "pokeshop-gitops") { Remove-Item -Recurse -Force "pokeshop-gitops" }
-
-                            # 克隆倉庫（\$env:GIT_TOKEN 用反斜線轉義是正確的，因為那是保留給 PowerShell 的變數）
                             git clone https://\$env:GIT_TOKEN@github.com/beibei860429/pokeshop-gitops.git
-                            
-                            cd pokeshop-gitops
-                            
-                            git config user.name "Jenkins CI"
-                            git config user.email "jenkins@cicd.com"
-
-                            # 關鍵修正：把原本的 .\\ 改成正斜線 ./ 或者直接寫檔名，徹底避開 Groovy 語法衝突
-                            if (Test-Path -Path "/apps/backend-deploy.yaml") {
-                                (Get-Content ./apps/backend-deploy.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./apps/backend-deploy.yaml
-                                
-                                git add ./apps/backend-deploy.yaml
-                                git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
-                                git push origin main
-                            } else {
-                                Write-Error "找不到 /apps/backend-deploy.yaml 檔案！"
-                            }
                         """
+                        
+                        // 2. 修正核心：用 Jenkins 的 dir 區塊強迫進入該資料夾，這在 Windows 服務下 100% 穩健
+                        dir('pokeshop-gitops') {
+                            powershell """
+                                git config user.name "Jenkins CI"
+                                git config user.email "jenkins@cicd.com"
+
+                                # 此時我們已經在 pokeshop-gitops 裡面了，直接找 apps/backend-deploy.yaml
+                                if (Test-Path -Path "apps/backend-deploy.yaml") {
+                                    (Get-Content ./apps/backend-deploy.yaml).Replace('VERSION_TAG', "${imageTag}") | Set-Content ./apps/backend-deploy.yaml
+                                    
+                                    git add ./apps/backend-deploy.yaml
+                                    git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
+                                    git push origin main
+                                } else {
+                                    # 這裡精準印出當前路徑，如果出錯才知道它跑到哪裡去了
+                                    Write-Error "找不到檔案！當前路徑是: \$(Get-Location)"
+                                }
+                            """
+                        }
                     }
                 }
             }
@@ -95,23 +90,39 @@ pipeline {
     post {
         success {
             script {
-                // 當整個 Pipeline 成功走完綠燈，呼叫 AWS CLI 將訊息推給 SNS
-                powershell """
-                    aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
-                        --subject "【Jenkins 通知】Pokeshop 後端已完成部署！(Build #${env.BUILD_NUMBER})" `
-                        --message "嗨 Beibei！Pokeshop 後端專案已成功通過 CI/CD 流水線。最新映像檔標籤為 v_${env.BUILD_NUMBER}，並已成功同步至 GitOps 倉庫。請前往 ArgoCD 查閱 EKS 叢集滾動更新狀態！"
-                """
+                // 修正核心：不要寫在頂部 environment，直接在這裡用 withCredentials 機制傳入
+                // 這樣可以保證數百個字元的 Session Token 能夠原封不動、不損毀地餵給 aws cli
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'aws-session-token', variable: 'AWS_SESSION_TOKEN')
+                ]) {
+                    powershell """
+                        # 設定預設區域
+                        \$env:AWS_DEFAULT_REGION = "ap-south-1"
+                        
+                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                            --subject "【Jenkins 通知】Pokeshop 後端已完成部署！(Build #${env.BUILD_NUMBER})" `
+                            --message "嗨 Beibei！Pokeshop 後端專案已成功完成。最新映像檔標籤為 v_${env.BUILD_NUMBER}。"
+                    """
+                }
             }
         }
-        
         failure {
             script {
-                // 💡 貼心擴充：如果中間有任何階段（如編譯、打包）失敗，也發 SNS 警告你
-                powershell """
-                    aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
-                        --subject "【Jenkins 警報】Pokeshop 後端部署失敗！(Build #${env.BUILD_NUMBER})" `
-                        --message "注意：Pokeshop 後端專案在建置中途發生錯誤（Build #${env.BUILD_NUMBER} 失敗）。請立刻登入 Jenkins 查閱 Console Output 進行排錯！"
-                """
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'aws-session-token', variable: 'AWS_SESSION_TOKEN')
+                ]) {
+                    powershell """
+                        \$env:AWS_DEFAULT_REGION = "ap-south-1"
+                        
+                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                            --subject "❌【Jenkins 警報】Pokeshop 後端部署失敗！(Build #${env.BUILD_NUMBER})" `
+                            --message "注意：建置 #${env.BUILD_NUMBER} 失敗。請檢查日誌！"
+                    """
+                }
             }
         }
     }
