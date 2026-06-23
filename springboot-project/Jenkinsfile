@@ -84,29 +84,28 @@ pipeline {
                 }
             }
         }
-
-        // SNS 推播區塊
-        post {
-            success {
-                script {
-                    // 當整個 Pipeline 成功走完綠燈，呼叫 AWS CLI 將訊息推給 SNS
-                    powershell """
-                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
-                            --subject "【Jenkins 通知】Pokeshop 後端已完成部署！(Build #${env.BUILD_NUMBER})" `
-                            --message "嗨 Beibei！Pokeshop 後端專案已成功通過 CI/CD 流水線。最新映像檔標籤為 v_${env.BUILD_NUMBER}，並已成功同步至 GitOps 倉庫。請前往 ArgoCD 查閱 EKS 叢集滾動更新狀態！"
-                    """
-                }
+    }
+    // SNS 推播區塊
+    post {
+        success {
+            script {
+                // 當整個 Pipeline 成功走完綠燈，呼叫 AWS CLI 將訊息推給 SNS
+                powershell """
+                    aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                        --subject "【Jenkins 通知】Pokeshop 後端已完成部署！(Build #${env.BUILD_NUMBER})" `
+                        --message "嗨 Beibei！Pokeshop 後端專案已成功通過 CI/CD 流水線。最新映像檔標籤為 v_${env.BUILD_NUMBER}，並已成功同步至 GitOps 倉庫。請前往 ArgoCD 查閱 EKS 叢集滾動更新狀態！"
+                """
             }
-            
-            failure {
-                script {
-                    // 💡 貼心擴充：如果中間有任何階段（如編譯、打包）失敗，也發 SNS 警告你
-                    powershell """
-                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
-                            --subject "【Jenkins 警報】Pokeshop 後端部署失敗！(Build #${env.BUILD_NUMBER})" `
-                            --message "注意：Pokeshop 後端專案在建置中途發生錯誤（Build #${env.BUILD_NUMBER} 失敗）。請立刻登入 Jenkins 查閱 Console Output 進行排錯！"
-                    """
-                }
+        }
+        
+        failure {
+            script {
+                // 💡 貼心擴充：如果中間有任何階段（如編譯、打包）失敗，也發 SNS 警告你
+                powershell """
+                    aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                        --subject "【Jenkins 警報】Pokeshop 後端部署失敗！(Build #${env.BUILD_NUMBER})" `
+                        --message "注意：Pokeshop 後端專案在建置中途發生錯誤（Build #${env.BUILD_NUMBER} 失敗）。請立刻登入 Jenkins 查閱 Console Output 進行排錯！"
+                """
             }
         }
     }
