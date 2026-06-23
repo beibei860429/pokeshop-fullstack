@@ -9,6 +9,12 @@ pipeline {
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
         GITHUB_CREDENTIALS_ID = 'github-token'
         DOCKER_CREDENTIALS_ID = 'dockerhub-pwd' // 這是你在 Jenkins 儲存的 Docker Hub 帳密憑證 ID
+
+        // 安全修正：從 Jenkins 保險箱讀取，GitHub 上完全看不到密碼！
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+        AWS_SESSION_TOKEN     = credentials('aws-session-token')
+        AWS_DEFAULT_REGION    = 'ap-south-1'
     }
     stages {
         stage('Fetch Code') {
