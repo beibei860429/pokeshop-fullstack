@@ -59,28 +59,31 @@ pipeline {
                     script {
                         def imageTag = "v_${env.BUILD_NUMBER}"
                         
-                        // 1. 先在外層把舊的刪除並 Clone 
                         powershell """
                             if (Test-Path -Path "pokeshop-gitops") { Remove-Item -Recurse -Force "pokeshop-gitops" }
                             git clone https://\$env:GIT_TOKEN@github.com/beibei860429/pokeshop-gitops.git
                         """
                         
-                        // 2. 修正核心：用 Jenkins 的 dir 區塊強迫進入該資料夾，這在 Windows 服務下 100% 穩健
                         dir('pokeshop-gitops') {
                             powershell """
                                 git config user.name "Jenkins CI"
                                 git config user.email "jenkins@cicd.com"
 
-                                # 此時我們已經在 pokeshop-gitops 裡面了，直接找 apps/backend-deploy.yaml
+                                # 升級版取代邏輯：強制使用 UTF-8 無 BOM 編碼，並用 -replace 確保精準替換
                                 if (Test-Path -Path "apps/backend-deploy.yaml") {
-                                    (Get-Content ./apps/backend-deploy.yaml).Replace('VERSION_TAG', "${imageTag}") | Set-Content ./apps/backend-deploy.yaml
+                                    \$content = Get-Content ./apps/backend-deploy.yaml -Raw
+                                    
+                                    # 使用 PowerShell 的 -replace 運算子，不論大小寫都能精準抓到
+                                    \$newContent = \$content -replace 'VERSION_TAG', "${imageTag}"
+                                    
+                                    # 強制以 UTF-8 寫回檔案，避免 Windows 產生奇怪的亂碼
+                                    [System.IO.File]::WriteAllText("\$(Get-Location)/apps/backend-deploy.yaml", \$newContent, [System.Text.Encoding]::UTF8)
                                     
                                     git add ./apps/backend-deploy.yaml
-                                    git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
+                                    git commit -m "chore: Jenkins auto update backend image tag to ${imageTag}"
                                     git push origin main
                                 } else {
-                                    # 這裡精準印出當前路徑，如果出錯才知道它跑到哪裡去了
-                                    Write-Error "找不到檔案！當前路徑是: \$(Get-Location)"
+                                    Write-Error "找不到檔案！"
                                 }
                             """
                         }
