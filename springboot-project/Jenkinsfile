@@ -70,14 +70,14 @@ pipeline {
                             git config user.email "jenkins@cicd.com"
 
                             # 關鍵修正：把原本的 .\\ 改成正斜線 ./ 或者直接寫檔名，徹底避開 Groovy 語法衝突
-                            if (Test-Path -Path "backend-deploy.yaml") {
+                            if (Test-Path -Path "/apps/backend-deploy.yaml") {
                                 (Get-Content ./apps/backend-deploy.yaml) -replace 'springboot-api:.*', "springboot-api:${imageTag}" | Set-Content ./apps/backend-deploy.yaml
                                 
                                 git add ./apps/backend-deploy.yaml
                                 git commit -m "chore: Jenkins auto update backend image tag to ${imageTag} [skip ci]"
                                 git push origin main
                             } else {
-                                Write-Error "找不到 backend-deploy.yaml 檔案！"
+                                Write-Error "找不到 /apps/backend-deploy.yaml 檔案！"
                             }
                         """
                     }
@@ -85,15 +85,29 @@ pipeline {
             }
         }
 
-        // 階段四：接在最後面，通知 K8s 進行重啟部署！
-        // stage('K8s Deploy') {
-        //     steps {
-        //         // 這裡採用最防呆、一槍斃命的雙指令寫法（確保設定與映像檔同時更新）
-        //         bat '''
-        //             kubectl apply -f backend-deploy.yaml
-        //             kubectl rollout restart deployment/poke-app
-        //         '''
-        //     }
-        // }
+        // SNS 推播區塊
+        post {
+            success {
+                script {
+                    // 當整個 Pipeline 成功走完綠燈，呼叫 AWS CLI 將訊息推給 SNS
+                    powershell """
+                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                            --subject "【Jenkins 通知】Pokeshop 後端已完成部署！(Build #${env.BUILD_NUMBER})" `
+                            --message "嗨 Beibei！Pokeshop 後端專案已成功通過 CI/CD 流水線。最新映像檔標籤為 v_${env.BUILD_NUMBER}，並已成功同步至 GitOps 倉庫。請前往 ArgoCD 查閱 EKS 叢集滾動更新狀態！"
+                    """
+                }
+            }
+            
+            failure {
+                script {
+                    // 💡 貼心擴充：如果中間有任何階段（如編譯、打包）失敗，也發 SNS 警告你
+                    powershell """
+                        aws sns publish --topic-arn "${env.SNS_TOPIC_ARN}" `
+                            --subject "【Jenkins 警報】Pokeshop 後端部署失敗！(Build #${env.BUILD_NUMBER})" `
+                            --message "注意：Pokeshop 後端專案在建置中途發生錯誤（Build #${env.BUILD_NUMBER} 失敗）。請立刻登入 Jenkins 查閱 Console Output 進行排錯！"
+                    """
+                }
+            }
+        }
     }
 }
