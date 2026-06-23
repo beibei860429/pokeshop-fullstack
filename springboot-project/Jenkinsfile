@@ -9,6 +9,9 @@ pipeline {
         DOCKER_HUB_REGISTRY = 'beibei860429/springboot-api'
         GITHUB_CREDENTIALS_ID = 'github-token'
         DOCKER_CREDENTIALS_ID = 'dockerhub-pwd' // 這是你在 Jenkins 儲存的 Docker Hub 帳密憑證 ID
+
+        // SNS ARN
+        SNS_TOPIC_ARN = 'arn:aws:sns:ap-south-1:672061768572:pokeshop-deploy-topic'
     }
     stages {
         stage('Fetch Code') {
